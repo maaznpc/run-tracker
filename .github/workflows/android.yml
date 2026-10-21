@@ -88,9 +88,9 @@ jobs:
           assert sdk.attrib[ns+'minSdkVersion'] == '26'
           assert sdk.attrib[ns+'targetSdkVersion'] == '35'
           permissions = {p.attrib[ns+'name'] for p in manifest.findall('uses-permission')}
-          assert 'android.permission.CAMERA' in permissions
-          assert 'android.permission.INTERNET' not in permissions
-          assert 'android.permission.RECORD_AUDIO' not in permissions
+          assert 'android.permission.CAMERA' in permissions, permissions
+          assert 'android.permission.INTERNET' not in permissions, permissions
+          assert 'android.permission.RECORD_AUDIO' not in permissions, permissions
           with zipfile.ZipFile(apk) as package:
               assert package.testzip() is None
               model = package.read('assets/pose_landmarker_lite.task')
