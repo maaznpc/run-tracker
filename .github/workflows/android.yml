@@ -76,6 +76,14 @@ jobs:
           ns = '{http://schemas.android.com/apk/res/android}'
           manifest = ET.parse('docs/apk-manifest.xml').getroot()
           assert manifest.attrib['package'] == 'com.stride.form'
+          launchers = []
+          for activity in manifest.findall('application/activity'):
+              for intent in activity.findall('intent-filter'):
+                  actions = {x.attrib[ns+'name'] for x in intent.findall('action')}
+                  categories = {x.attrib[ns+'name'] for x in intent.findall('category')}
+                  if 'android.intent.action.MAIN' in actions and 'android.intent.category.LAUNCHER' in categories:
+                      launchers.append(activity.attrib[ns+'name'])
+          assert len(launchers) == 1 and launchers[0].endswith('.MainActivity'), launchers
           sdk = manifest.find('uses-sdk')
           assert sdk.attrib[ns+'minSdkVersion'] == '26'
           assert sdk.attrib[ns+'targetSdkVersion'] == '35'
