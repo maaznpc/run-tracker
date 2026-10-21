@@ -61,7 +61,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
             ./gradlew connectedDebugAndroidTest --no-daemon
-            adb pull /sdcard/Android/data/com.stride.form/files/verification verification-screenshots
+            adb pull /sdcard/Pictures/Stride-Verification verification-screenshots
       - name: Verify APK signature, model and permissions
         run: |
           apk=app/build/outputs/apk/debug/app-debug.apk

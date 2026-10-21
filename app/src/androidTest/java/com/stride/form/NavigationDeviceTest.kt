@@ -1,6 +1,9 @@
 package com.stride.form
 
 import android.graphics.Bitmap
+import android.content.ContentValues
+import android.os.Build
+import android.provider.MediaStore
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -40,8 +43,24 @@ class NavigationDeviceTest {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
-        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "verification").apply { mkdirs() }
-        File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        try {
+            val context = instrumentation.targetContext
+            if (Build.VERSION.SDK_INT >= 29) {
+                // Public test images survive AGP uninstalling the app after instrumentation.
+                val resolver = context.contentResolver
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "$name.png")
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Stride-Verification")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
+                val image = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values))
+                requireNotNull(resolver.openOutputStream(image)).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                resolver.update(image, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+            } else {
+                val directory = File(context.getExternalFilesDir(null), "verification").apply { mkdirs() }
+                File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            }
+        } finally { bitmap.recycle() }
     }
 }
