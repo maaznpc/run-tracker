@@ -4,3 +4,8 @@
 local.properties
 *.iml
 .toolchain/
+
+__pycache__/
+*.pyc
+app/src/androidTest/assets/pose.jpg
+verification-screenshots/

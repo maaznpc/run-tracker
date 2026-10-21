@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**' 
   pull_request:
 permissions:
   contents: read
@@ -22,11 +25,43 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - name: Bundle official MediaPipe model
-        run: python3 scripts/fetch_model.py
+        run: |
+          python3 scripts/fetch_model.py
+          curl --fail --location --retry 2 --max-time 120 https://storage.googleapis.com/mediapipe-assets/pose.jpg -o app/src/androidTest/assets/pose.jpg
       - name: Core signal checks
         run: bash scripts/test-core.sh
       - name: Build, test and lint
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
+      - name: Print lint diagnostics on failure
+        if: failure()
+        run: |
+          python3 - <<'PYLINT'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          path = Path('app/build/reports/lint-results-debug.xml')
+          if path.exists():
+              for issue in ET.parse(path).getroot():
+                  if issue.attrib.get('severity') in ('Error', 'Fatal'):
+                      print(issue.attrib)
+                      for location in issue.findall('location'): print(location.attrib)
+          PYLINT
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install, launch and test on Android 15 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: default
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            ./gradlew connectedDebugAndroidTest --no-daemon
+            adb pull /sdcard/Android/data/com.stride.form/files/verification verification-screenshots
       - name: Verify APK signature, model and permissions
         run: |
           apk=app/build/outputs/apk/debug/app-debug.apk
@@ -58,7 +93,7 @@ jobs:
               assert any(p.startswith('lib/arm64-v8a/') and p.endswith('.so') for p in package.namelist())
           print('PASS: APK identity, SDK levels, private permissions, native library and bundled pose model')
           PYVERIFY
-          echo 'APK built, unit tested, linted and signature/package verified. Physical-phone camera validation remains separate.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'APK built, unit tested, linted, installed and tested on Android 15 emulator, with signature/package verification. Physical-phone camera validation remains separate.' >> "$GITHUB_STEP_SUMMARY"
           cat docs/apk.sha256 >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
@@ -75,3 +110,5 @@ jobs:
             docs/apk-manifest.xml
             docs/apk-permissions.txt
             docs/apk.sha256
+            verification-screenshots
+            app/build/outputs/androidTest-results

@@ -134,6 +134,10 @@ import kotlin.math.*
                     FilledIconButton(onClick = {
                         if (isRecording) { finalizing = true; recording?.stop() }
                         else {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                                permission = false
+                                return@FilledIconButton
+                            }
                             val vc = capture ?: return@FilledIconButton
                             val file = vm.allocateRecording(); discardRequested.set(false)
                             try {
@@ -238,6 +242,10 @@ import kotlin.math.*
                 previewView.post {
                     if (!closed.get()) try {
                         val group = UseCaseGroup.Builder().addUseCase(preview).addUseCase(analysis).addUseCase(capture)
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                            latestError("Camera permission is required. Return to setup and allow camera access.")
+                            return@post
+                        }
                         provider!!.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, group.build())
                         latestReady(capture)
                     } catch (e: Exception) { latestError("This camera cannot run recording and tracking together. Import a video instead. ${e.message.orEmpty()}") }

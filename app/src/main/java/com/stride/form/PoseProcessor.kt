@@ -3,6 +3,9 @@ package com.stride.form
 import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
+import android.os.Build
+import kotlin.math.min
+import kotlin.math.roundToInt
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
@@ -27,6 +30,18 @@ object PoseProcessor {
         val points = result.landmarks().firstOrNull().orEmpty().map { Joint(it.x(), it.y(), it.visibility().orElse(0f)) }
         return PoseFrame(timeMs, points, width, height)
     }
+    private fun extractFrame(retriever: MediaMetadataRetriever, timeMs: Long): Bitmap? {
+        if (Build.VERSION.SDK_INT >= 27) {
+            return retriever.getScaledFrameAtTime(timeMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST, 720, 720)
+        }
+        val original = retriever.getFrameAtTime(timeMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST) ?: return null
+        val scale = min(720f / original.width, 720f / original.height).coerceAtMost(1f)
+        if (scale >= 1f) return original
+        val scaled = Bitmap.createScaledBitmap(original, (original.width * scale).roundToInt().coerceAtLeast(1),
+            (original.height * scale).roundToInt().coerceAtLeast(1), true)
+        if (scaled !== original) original.recycle()
+        return scaled
+    }
     suspend fun analyze(context: Context, file: File, id: String, view: ViewAngle, facing: Facing,
                         cover: File, progress: (Float) -> Unit): RunReport {
         val retriever = MediaMetadataRetriever()
@@ -42,7 +57,7 @@ object PoseProcessor {
             var count = 0
             for (time in 0 until duration step 100L) {
                 currentCoroutineContext().ensureActive()
-                val bitmap = retriever.getScaledFrameAtTime(time * 1000, MediaMetadataRetriever.OPTION_CLOSEST, 720, 720)
+                val bitmap = extractFrame(retriever, time)
                 if (bitmap != null) {
                     var input = bitmap
                     if (bitmap.config != Bitmap.Config.ARGB_8888) input = bitmap.copy(Bitmap.Config.ARGB_8888, false)
