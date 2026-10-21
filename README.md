@@ -2,7 +2,13 @@
 
 Native Android app written in Kotlin, Jetpack Compose, CameraX and MediaPipe. Ivory, charcoal, olive, lime and coral. No blue, account, backend, API key or runtime internet access.
 
-**Delivery status:** source implementation provided. The Java signal-processing checks run successfully in the delivery environment. The Android SDK and network access were unavailable there, so **no APK, Android compilation result, lint result or device-test result is claimed**. Fetching the model and running the Android build below are required before installation. Camera behavior, model inference and overlay alignment still need physical-device verification.
+**Delivery status:** a signed debug APK was built and verified in [GitHub Actions](https://github.com/maaznpc/run-tracker/actions/runs/39545663142) from commit `d052a74bc40123d125af44b0532076d4900cab68`. Build, lint, 12 unit tests, 30 signal-processing checks, 4 Android 15 emulator tests, APK signature and package/privacy checks passed. Physical-phone camera alignment, performance and real-run accuracy still need device validation.
+
+## Download the verified APK
+
+[Download Stride-debug-APK](https://github.com/maaznpc/run-tracker/actions/runs/39545663142/artifacts/12320629355). Sign in to GitHub, extract the ZIP and install `app-debug.apk` on your Android phone. The pose model is already bundled; the installed app works offline. This is a debug build for testing.
+
+[Verification reports and four emulator screenshots](https://github.com/maaznpc/run-tracker/actions/runs/39545663142/artifacts/12320778986). These include unit/instrumentation reports, the actual APK manifest, signature output and APK SHA-256. See [the verification record](docs/VERIFICATION.md) for the precise scope.
 
 ## Run in Android Studio
 
@@ -69,9 +75,18 @@ bash scripts/test-core.sh
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-Thirty offline checks cover joint geometry, score gating, temporal persistence, dropped tracking, hysteresis and cadence. Twelve Kotlin JUnit tests cover the full engine, including pose confidence, aspect ratio, stationary clips, the synthetic example and JSON persistence; those require the Android/Gradle toolchain and were not run in the delivery environment. Device cases are listed in [verification](docs/VERIFICATION.md).
+Thirty signal checks and twelve Kotlin JUnit tests passed in CI. Four Android 15 instrumentation tests also passed: home/report navigation, capture-setup/history/learn navigation, actual model detection of a known person including the hips, and real video decoding with score withholding for a blank scene.
 
-An optional GitHub Actions workflow builds, tests and uploads a debug APK when this project is added to your repository. It is included locally and has **not** been run or published on your behalf.
+To run the device tests locally, first download the official test-only pose fixture:
+
+```sh
+curl --fail --location https://storage.googleapis.com/mediapipe-assets/pose.jpg -o app/src/androidTest/assets/pose.jpg
+./gradlew connectedDebugAndroidTest
+```
+
+The 5-second blank H.264 video fixture is included. The person image is test-only, fetched from Google's official sample assets, and is not bundled into the app. Further physical-device cases are listed in [verification](docs/VERIFICATION.md).
+
+The GitHub Actions workflow builds, tests, verifies and uploads the debug APK and reports. Markdown/documentation-only pushes are skipped; app-source changes rerun verification.
 
 ## Structure
 

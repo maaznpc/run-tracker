@@ -64,6 +64,7 @@ jobs:
             adb pull /sdcard/Pictures/Stride-Verification verification-screenshots
       - name: Verify APK signature, model and permissions
         run: |
+          set -euo pipefail
           apk=app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" | tee docs/apk-signature.txt
           "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print "$apk" > docs/apk-manifest.xml
